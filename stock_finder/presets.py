@@ -77,6 +77,24 @@ PRESETS: dict[str, Preset] = {
         sort_by="eps_growth",
         min_price=2.0,
     ),
+    # ------------------------------------------------ VALOR + TÉCNICO (mixtos)
+    "undervalued-bullish": Preset(
+        name="undervalued-bullish",
+        description="Infravaloradas con rating técnico alcista (valor + momentum).",
+        filters=["type=stock", "pe:0..18", "pb<2", "roe>10", "debt_to_equity<1.2",
+                 "market_cap>2b", "rating>0.1"],
+        columns=["description", "close", "pe", "pb", "roe", "rating", "market_cap", "sector"],
+        sort_by="rating",
+        min_price=2.0,
+    ),
+    "strong-buy": Preset(
+        name="strong-buy",
+        description="Rating técnico STRONG BUY con liquidez y tamaño relevantes.",
+        filters=["type=stock", "rating>0.5", "avg_volume_10d>1m", "market_cap>2b"],
+        columns=["description", "close", "change", "rating", "rsi", "volume", "market_cap", "sector"],
+        sort_by="rating",
+        min_price=2.0,
+    ),
     # ------------------------------------------------------------- TÉCNICO
     "oversold": Preset(
         name="oversold",

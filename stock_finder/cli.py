@@ -225,6 +225,71 @@ def vals_desc(row) -> str:
     return str(row.values.get("description") or row.symbol)
 
 
+_MTF_DEFAULT = ["15m", "1h", "4h", "1D", "1W", "1M"]
+
+
+@app.command()
+def mtf(
+    symbol: str = typer.Argument(..., help="Ticker a analizar. Ej: AAPL."),
+    market: str = typer.Option("usa", "--market", "-m"),
+    intervals: str = typer.Option(
+        ",".join(_MTF_DEFAULT), "--intervals", "-i",
+        help="Temporalidades separadas por coma.",
+    ),
+    fmt: Fmt = typer.Option(Fmt.table, "--format"),
+) -> None:
+    """Comparación multi-temporalidad del rating técnico de un valor."""
+    tfs = [t.strip() for t in intervals.split(",") if t.strip()]
+    base = ["Recommend.All", "Recommend.MA", "Recommend.Other", "RSI"]
+
+    # Todas las temporalidades en una sola petición (columnas con sufijo por intervalo).
+    columns = ["description"]
+    for tf in tfs:
+        s = interval_suffix(tf)
+        columns += [f"{f}{s}" for f in base]
+
+    name = symbol.split(":", 1)[-1].upper()
+    scanner = TradingViewScanner()
+    try:
+        res = scanner.scan(
+            market=resolve_market(market),
+            columns=columns,
+            filters=[
+                Filter(left="name", operation="equal", right=name),
+                Filter(left="is_primary", operation="equal", right=True),
+            ],
+            range_=(0, 1),
+        )
+    except ScannerError as exc:
+        err.print(f"[red]Error del scanner:[/red] {exc}")
+        raise typer.Exit(1)
+    if not res.rows:
+        err.print(f"[yellow]No encontrado:[/yellow] {symbol} en mercado '{market}'.")
+        raise typer.Exit(1)
+
+    row = res.rows[0]
+    rows = []
+    for tf in tfs:
+        s = interval_suffix(tf)
+        rows.append({
+            "tf": tf,
+            "all": row.values.get(f"Recommend.All{s}"),
+            "ma": row.values.get(f"Recommend.MA{s}"),
+            "osc": row.values.get(f"Recommend.Other{s}"),
+            "rsi": row.values.get(f"RSI{s}"),
+        })
+
+    if fmt is Fmt.json:
+        import json
+        print(json.dumps(
+            {"ticker": row.ticker, "symbol": row.symbol, "name": vals_desc(row), "timeframes": rows},
+            indent=2, ensure_ascii=False,
+        ))
+    else:
+        from .output import render_mtf
+        render_mtf(row.symbol, vals_desc(row), row.ticker, rows)
+
+
 @app.command()
 def presets() -> None:
     """Lista los screens predefinidos."""

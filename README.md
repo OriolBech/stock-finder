@@ -37,6 +37,9 @@ stock-finder markets        # mercados soportados
 stock-finder analyze AAPL NVDA -m usa           # diario
 stock-finder analyze SAN -m spain -i 4h         # 4 horas
 stock-finder analyze NVDA -i 1W                 # semanal
+
+# Rating técnico en varias temporalidades a la vez
+stock-finder mtf AAPL -m usa
 ```
 
 ## Análisis técnico (`analyze`)
@@ -58,6 +61,17 @@ stock-finder analyze <TICKER...> [-m mercado] [-i temporalidad] [--format json]
 
 > El rating es una señal automática basada en ~26 indicadores; úsalo como punto
 > de partida, no como recomendación de inversión.
+
+## Multi-temporalidad (`mtf`)
+
+Muestra el rating técnico (resumen / medias / osciladores + RSI) de **un valor a
+través de varias temporalidades** en una sola tabla — útil para ver si las señales
+están alineadas (p.ej. alcista en diario pero sobrecomprado en 15m).
+
+```bash
+stock-finder mtf AAPL -m usa                       # 15m,1h,4h,1D,1W,1M por defecto
+stock-finder mtf SAN -m spain -i 1h,4h,1D,1W       # temporalidades a medida
+```
 
 ## Filtros (`-f`, repetible)
 
@@ -118,6 +132,8 @@ stock-finder screen -m crypto -f 'RSI<30' -c description,close,RSI -s RSI -o asc
 
 **Valor / fundamentales:** `undervalued`, `deep-value`, `large-cap-value`,
 `garp`, `high-dividend`, `quality-growth`.
+**Valor + técnico (mixtos):** `undervalued-bullish` (barata con rating alcista),
+`strong-buy` (rating STRONG BUY con liquidez).
 **Técnicos / momentum:** `oversold`, `momentum`, `breakout`, `gainers`, `losers`.
 
 Ejecuta `stock-finder presets` para ver filtros y descripción de cada uno.

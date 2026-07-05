@@ -24,6 +24,9 @@ from .signals import (
 
 console = Console()
 
+# Campos de rating técnico (-1..1) que se muestran con etiqueta.
+_RATING_FIELDS = {"Recommend.All", "Recommend.MA", "Recommend.Other"}
+
 # Campos que se muestran como porcentaje coloreado.
 _PCT_FIELDS = {
     "change", "Perf.W", "Perf.1M", "Perf.3M", "Perf.6M",
@@ -70,6 +73,11 @@ def render_table(result: ScanResult, columns: list[str], title: str = "") -> Non
         cells = [str(i), row.symbol]
         for col in columns:
             val = row.values.get(col)
+            if col in _RATING_FIELDS:
+                label, color = rating_label(val if isinstance(val, (int, float)) else None)
+                num = f" ({val:+.2f})" if isinstance(val, (int, float)) else ""
+                cells.append(f"[{color}]{label}{num}[/{color}]")
+                continue
             text = _fmt_cell(col, val)
             color = _color_for(col, val)
             cells.append(f"[{color}]{text}[/{color}]" if color else text)
@@ -132,6 +140,33 @@ def render_analysis(results: list[dict]) -> None:
         body = Group(summary, Text(""), table)
         panel = Panel(body, title=title, title_align="left", border_style=all_c, expand=False)
         console.print(panel)
+
+
+def render_mtf(symbol: str, name: str, ticker: str, rows: list[dict]) -> None:
+    """Tabla de rating técnico por temporalidad para un mismo valor."""
+    table = Table(
+        title=f"{symbol} · {name}  [dim]({ticker})[/dim]",
+        header_style="bold cyan",
+    )
+    table.add_column("temporalidad", style="bold")
+    table.add_column("resumen")
+    table.add_column("medias")
+    table.add_column("osciladores")
+    table.add_column("RSI", justify="right")
+
+    def cell(v):
+        label, color = rating_label(v if isinstance(v, (int, float)) else None)
+        num = f" ({v:+.2f})" if isinstance(v, (int, float)) else ""
+        return f"[{color}]{label}{num}[/{color}]"
+
+    for r in rows:
+        rsi_txt, rsi_c = rsi_label(r["rsi"])
+        rsi_val = f"{r['rsi']:.1f}" if isinstance(r["rsi"], (int, float)) else "-"
+        table.add_row(
+            r["tf"], cell(r["all"]), cell(r["ma"]), cell(r["osc"]),
+            f"[{rsi_c}]{rsi_val}[/{rsi_c}]",
+        )
+    console.print(table)
 
 
 def to_csv(result: ScanResult, columns: list[str]) -> str:
