@@ -32,7 +32,32 @@ stock-finder screen -m usa \
 # Descubrir campos y mercados
 stock-finder fields rsi     # busca alias de campos
 stock-finder markets        # mercados soportados
+
+# Análisis técnico de uno o varios valores
+stock-finder analyze AAPL NVDA -m usa           # diario
+stock-finder analyze SAN -m spain -i 4h         # 4 horas
+stock-finder analyze NVDA -i 1W                 # semanal
 ```
+
+## Análisis técnico (`analyze`)
+
+Muestra, por símbolo, el **rating técnico** que TradingView precalcula (resumen
+global, medias móviles y osciladores) traducido a `STRONG BUY … STRONG SELL`,
+más los indicadores clave interpretados (RSI, MACD, estocástico, CCI, ADX) y el
+precio frente a las SMA 20/50/200.
+
+```bash
+stock-finder analyze <TICKER...> [-m mercado] [-i temporalidad] [--format json]
+```
+
+| Opción            | Valores                                             |
+|-------------------|-----------------------------------------------------|
+| `-m, --market`    | `usa`, `spain`, `germany`, `crypto`…                |
+| `-i, --interval`  | `1m 5m 15m 30m 1h 2h 4h 1D 1W 1M` (defecto `1D`)    |
+| `--format`        | `table` (defecto) o `json`                          |
+
+> El rating es una señal automática basada en ~26 indicadores; úsalo como punto
+> de partida, no como recomendación de inversión.
 
 ## Filtros (`-f`, repetible)
 

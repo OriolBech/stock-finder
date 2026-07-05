@@ -58,6 +58,9 @@ FIELDS: dict[str, str] = {
     # Indicadores técnicos
     "rsi": "RSI",
     "rsi_7": "RSI7",
+    "stoch_k": "Stoch.K",
+    "stoch_d": "Stoch.D",
+    "cci": "CCI20",
     "macd": "MACD.macd",
     "macd_signal": "MACD.signal",
     "atr": "ATR",

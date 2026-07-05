@@ -21,8 +21,9 @@ from .fields import (
     resolve_market,
 )
 from .filters import parse_filters
-from .output import render_table, to_csv, to_json
+from .output import render_analysis, render_table, to_csv, to_json
 from .presets import PRESETS, get_preset
+from .signals import interval_suffix
 
 app = typer.Typer(
     add_completion=False,
@@ -157,6 +158,71 @@ def preset(
         primary_only=primary_only, exclude_otc=exclude_otc,
         min_price=min_price if min_price is not None else p.min_price,
     )
+
+
+# Campos técnicos que pide 'analyze' (nombres base, sin sufijo de intervalo).
+_RATING_FIELDS = ["Recommend.All", "Recommend.MA", "Recommend.Other"]
+_INDICATOR_FIELDS = [
+    "RSI", "MACD.macd", "MACD.signal", "Stoch.K", "Stoch.D",
+    "CCI20", "ADX", "close", "SMA20", "SMA50", "SMA200", "EMA50", "EMA200",
+]
+
+
+@app.command()
+def analyze(
+    symbols: list[str] = typer.Argument(..., help="Uno o más tickers. Ej: AAPL MSFT NVDA."),
+    market: str = typer.Option("usa", "--market", "-m", help="Mercado del símbolo."),
+    interval: str = typer.Option(
+        "1D", "--interval", "-i",
+        help="Temporalidad: 1m,5m,15m,30m,1h,2h,4h,1D,1W,1M.",
+    ),
+    fmt: Fmt = typer.Option(Fmt.table, "--format", help="table o json."),
+) -> None:
+    """Análisis técnico de uno o varios valores (rating, medias, osciladores)."""
+    suffix = interval_suffix(interval)
+    base_fields = _RATING_FIELDS + _INDICATOR_FIELDS
+    columns = ["description"] + [f"{f}{suffix}" for f in base_fields]
+
+    scanner = TradingViewScanner()
+    results = []
+    for sym in symbols:
+        name = sym.split(":", 1)[-1].upper()
+        try:
+            res = scanner.scan(
+                market=resolve_market(market),
+                columns=columns,
+                filters=[
+                    Filter(left="name", operation="equal", right=name),
+                    Filter(left="is_primary", operation="equal", right=True),
+                ],
+                range_=(0, 1),
+            )
+        except ScannerError as exc:
+            err.print(f"[red]Error del scanner ({sym}):[/red] {exc}")
+            continue
+        if not res.rows:
+            err.print(f"[yellow]No encontrado:[/yellow] {sym} en mercado '{market}'.")
+            continue
+        row = res.rows[0]
+        # Reindexa los valores quitando el sufijo de intervalo para simplificar.
+        vals = {f: row.values.get(f"{f}{suffix}") for f in base_fields}
+        results.append({
+            "ticker": row.ticker,
+            "symbol": row.symbol,
+            "name": vals_desc(row),
+            "interval": interval,
+            "values": vals,
+        })
+
+    if fmt is Fmt.json:
+        import json
+        print(json.dumps(results, indent=2, ensure_ascii=False))
+    else:
+        render_analysis(results)
+
+
+def vals_desc(row) -> str:
+    return str(row.values.get("description") or row.symbol)
 
 
 @app.command()
