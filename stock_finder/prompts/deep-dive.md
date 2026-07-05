@@ -14,8 +14,11 @@ herramientas de stock-finder con el **contexto cualitativo** que obtengas con tu
 3. `screen(filters=["name={SYMBOL}"], columns=[...])` con las columnas
    fundamentales que necesites (pe, pb, ps, roe, net_margin, gross_margin,
    eps_growth, debt_to_equity, dividend_yield, revenue, market_cap, beta_1y).
-4. **Websearch**: negocio, últimas noticias/resultados, guidance, consenso de
-   analistas, y el **motivo de cualquier movimiento reciente** del precio.
+4. **Websearch**: negocio y **desglose de ingresos** (informe anual / 10-K / 20-F /
+   presentación de resultados: reparto por línea de producto-servicio, por segmento y
+   por geografía/país), últimas noticias/resultados, guidance, consenso de analistas,
+   y el **motivo de cualquier movimiento reciente** del precio. La tool NO da el
+   desglose por segmento/geografía → sácalo de las cuentas de la empresa.
 
 ## Estructura de la ficha (rellena todos los apartados)
 
@@ -27,9 +30,18 @@ herramientas de stock-finder con el **contexto cualitativo** que obtengas con tu
 - Precio, capitalización, múltiplos (PER, P/B, P/S), rentabilidad (ROE, márgenes),
   balance (deuda/patrimonio), dividendo, beta. Rating técnico (resumen/medias/osc).
 
-### 3. El negocio
-- Qué hace y **cómo gana dinero** (segmentos, geografías, clientes). Modelo de
-  ingresos (recurrente vs cíclico). Tamaño y cuota.
+### 3. El negocio *(entender a fondo cómo gana dinero)*
+- **Qué hace** en una frase clara.
+- **Productos / servicios:** lista de las líneas principales, qué es cada una y a
+  quién sirve.
+- **Mix de ingresos por producto/servicio y por segmento:** el **% del revenue total**
+  que aporta cada uno (y, si difiere mucho, el % del beneficio operativo — dónde está
+  el margen). Usa una mini-tabla si ayuda.
+- **Desglose geográfico:** de qué **regiones/países** vienen los ingresos y en qué **%**.
+- **Clientes y canales:** tipo de cliente, concentración (¿pocos clientes grandes?),
+  canal de venta.
+- **Modelo de ingresos:** recurrente vs transaccional/cíclico. Tamaño de mercado y cuota.
+- Cita el ejercicio/fuente del que salen los porcentajes (año fiscal, informe).
 
 ### 4. Sector y ventaja competitiva
 - Dinámica del sector y ciclo. Posición vs competidores. ¿Foso defensivo (moat)?
