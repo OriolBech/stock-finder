@@ -95,6 +95,27 @@ PRESETS: dict[str, Preset] = {
         sort_by="rating",
         min_price=2.0,
     ),
+    "pullback": Preset(
+        name="pullback",
+        description="Recorte sano en tendencia alcista: cayó a corto pero sigue sobre la SMA200, con fundamentales sólidos (candidato a rebote).",
+        filters=["type=stock", "market_cap>2b", "avg_volume_10d>1m",
+                 "close>sma200", "change_6m>5", "change_week<-2",
+                 "rsi:30..48", "pe:0..40", "roe>8", "debt_to_equity<1.5"],
+        columns=["description", "close", "change_week", "rsi", "change_6m", "pe", "roe", "sector"],
+        sort_by="rsi",
+        sort_order="asc",
+        min_price=3.0,
+    ),
+    "dip-value": Preset(
+        name="dip-value",
+        description="Infravaloradas que además han recortado esta semana (valor + caída reciente).",
+        filters=["type=stock", "market_cap>2b", "pe:0..15", "pb<2", "roe>10",
+                 "debt_to_equity<1.2", "change_week<-3", "rsi<50"],
+        columns=["description", "close", "change_week", "rsi", "pe", "pb", "roe", "sector"],
+        sort_by="change_week",
+        sort_order="asc",
+        min_price=3.0,
+    ),
     # ------------------------------------------------------------- TÉCNICO
     "oversold": Preset(
         name="oversold",

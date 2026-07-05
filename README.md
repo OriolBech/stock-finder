@@ -133,7 +133,8 @@ stock-finder screen -m crypto -f 'RSI<30' -c description,close,RSI -s RSI -o asc
 **Valor / fundamentales:** `undervalued`, `deep-value`, `large-cap-value`,
 `garp`, `high-dividend`, `quality-growth`.
 **Valor + técnico (mixtos):** `undervalued-bullish` (barata con rating alcista),
-`strong-buy` (rating STRONG BUY con liquidez).
+`strong-buy` (rating STRONG BUY con liquidez), `pullback` (recorte sano en
+tendencia alcista → candidato a rebote), `dip-value` (barata que además cayó esta semana).
 **Técnicos / momentum:** `oversold`, `momentum`, `breakout`, `gainers`, `losers`.
 
 Ejecuta `stock-finder presets` para ver filtros y descripción de cada uno.
