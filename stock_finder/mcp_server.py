@@ -19,6 +19,7 @@ from .api import ScannerError
 from .fields import FIELDS, MARKETS
 from .presets import PRESETS
 from . import service
+from . import prompt_lib
 
 try:
     from mcp.server.fastmcp import FastMCP
@@ -125,6 +126,30 @@ def list_fields() -> dict:
 def list_markets() -> dict:
     """Diccionario alias -> segmento de los mercados soportados."""
     return MARKETS
+
+
+@mcp.tool()
+def list_prompts() -> list[str]:
+    """Nombres de las plantillas de report/ficha disponibles (deep-dive, rebound-check, compare)."""
+    return prompt_lib.list_prompts()
+
+
+@mcp.tool()
+def get_prompt(
+    name: str,
+    symbols: Optional[list[str]] = None,
+    market: str = "usa",
+) -> dict:
+    """Devuelve una plantilla de prompt lista para generar la ficha/report de un valor.
+
+    Úsala como BASE: recupera la plantilla, ejecuta las herramientas que indica
+    (analyze/multi_timeframe/screen) y completa con tu búsqueda web. Plantillas:
+    'deep-dive' (ficha completa), 'rebound-check' (rebote vs trampa), 'compare'.
+    """
+    try:
+        return {"name": name, "prompt": prompt_lib.get_prompt(name, symbols=symbols, market=market)}
+    except KeyError:
+        return {"error": f"plantilla desconocida: {name}", "available": prompt_lib.list_prompts()}
 
 
 def main() -> None:

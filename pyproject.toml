@@ -23,3 +23,6 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
 packages = ["stock_finder"]
+
+[tool.setuptools.package-data]
+stock_finder = ["prompts/*.md"]

@@ -16,6 +16,7 @@ from .fields import DEFAULT_COLUMNS, FIELDS, MARKETS
 from .output import render_analysis, render_mtf, render_table, to_csv, to_json
 from .presets import PRESETS
 from . import service
+from . import prompt_lib
 
 app = typer.Typer(
     add_completion=False,
@@ -217,6 +218,36 @@ def markets(
     for alias, seg in sorted(MARKETS.items()):
         table.add_row(alias, seg)
     console.print(table)
+
+
+@app.command()
+def prompt(
+    name: Optional[str] = typer.Argument(None, help="Nombre de la plantilla (vacío = listar)."),
+    symbols: Optional[list[str]] = typer.Argument(None, help="Símbolo(s) para rellenar la plantilla."),
+    market: str = typer.Option("usa", "--market", "-m"),
+) -> None:
+    """Imprime una plantilla de prompt para generar la ficha/report de un valor.
+
+    Sin argumentos lista las plantillas. Con nombre (y símbolos opcionales) imprime
+    el prompt listo para pasárselo a un LLM. Ej: stock-finder prompt deep-dive AAPL.
+    """
+    if not name:
+        table = Table(title="Plantillas de prompt", header_style="bold cyan")
+        table.add_column("nombre", style="bold")
+        for n in prompt_lib.list_prompts():
+            table.add_row(n)
+        console.print(table)
+        console.print("[dim]Uso: stock-finder prompt <nombre> [SIMBOLOS...] [-m mercado][/dim]")
+        return
+    try:
+        text = prompt_lib.get_prompt(name, symbols=symbols or None, market=market)
+    except KeyError:
+        err.print(
+            f"[red]Plantilla desconocida:[/red] {name}. "
+            f"Disponibles: {', '.join(prompt_lib.list_prompts())}"
+        )
+        raise typer.Exit(2)
+    print(text)
 
 
 @app.command()

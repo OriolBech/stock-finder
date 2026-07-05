@@ -91,6 +91,21 @@ claude mcp add stock-finder -- stock-finder-mcp   # regístralo en Claude Code
 El contrato para el agente está en [`AGENTS.md`](AGENTS.md) (flujo recomendado:
 filtrar → confirmar técnico → investigar el *porqué* con websearch → sintetizar).
 
+### Plantillas de report
+
+Para analizar un valor en profundidad hay plantillas de prompt reutilizables
+(`deep-dive`, `rebound-check`, `compare`) que dan al LLM una estructura sólida de
+la que partir. Se recuperan por CLI o MCP:
+
+```bash
+stock-finder prompt                    # lista plantillas
+stock-finder prompt deep-dive WDC      # ficha completa lista para el LLM
+stock-finder prompt compare WDC STLD NUE
+```
+
+Vía MCP: `list_prompts` y `get_prompt(name, symbols, market)`. Las plantillas
+viven en `stock_finder/prompts/*.md` (edítalas para ajustar los apartados).
+
 ## Filtros (`-f`, repetible)
 
 | Sintaxis            | Significado             | Ejemplo               |

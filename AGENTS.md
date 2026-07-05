@@ -30,6 +30,20 @@ Dos vías equivalentes; ambas devuelven JSON:
 4. **Sintetiza**: combina la señal cuantitativa (tendencia + fundamentales) con la
    causa cualitativa. Descarta los que cayeron por deterioro del negocio.
 
+## Plantillas de report (punto de partida)
+
+Cuando decidas analizar un valor **en profundidad**, arranca desde una plantilla en
+vez de improvisar la estructura:
+
+- `get_prompt("deep-dive", symbols=["WDC"])` → ficha completa (12 apartados:
+  negocio, sector, fundamentales, valoración, técnico, catalizador de la caída,
+  riesgos, escenarios, veredicto).
+- `get_prompt("rebound-check", symbols=["STLD"])` → veredicto rápido rebote vs trampa.
+- `get_prompt("compare", symbols=["WDC","STLD","NUE"])` → comparativa y ranking.
+
+CLI equivalente: `stock-finder prompt deep-dive WDC`. La plantilla te dice qué
+herramientas ejecutar y qué completar con websearch; síguela y cita fuentes.
+
 ## Reglas de filtros (`screen`)
 
 `campo op valor`, repetible. Operadores: `>` `>=` `<` `<=` `=` `!=`, rango
