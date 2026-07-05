@@ -73,6 +73,24 @@ stock-finder mtf AAPL -m usa                       # 15m,1h,4h,1D,1W,1M por defe
 stock-finder mtf SAN -m spain -i 1h,4h,1D,1W       # temporalidades a medida
 ```
 
+## Uso con un LLM / agente (MCP)
+
+Este CLI está pensado para usarse **como herramienta de un LLM** (Claude Code,
+Claude Desktop, Codex, Copilot): el CLI aporta los datos cuantitativos y el LLM
+aporta el contexto de noticias vía su búsqueda web. Todos los comandos aceptan
+`--format json`, incluidos `presets`, `fields` y `markets` para introspección.
+
+Además hay un **servidor MCP** con las herramientas `screen`, `run_preset`,
+`analyze`, `multi_timeframe`, `list_presets`, `list_fields`, `list_markets`:
+
+```bash
+pip install -e '.[mcp]'                       # instala el extra 'mcp'
+claude mcp add stock-finder -- stock-finder-mcp   # regístralo en Claude Code
+```
+
+El contrato para el agente está en [`AGENTS.md`](AGENTS.md) (flujo recomendado:
+filtrar → confirmar técnico → investigar el *porqué* con websearch → sintetizar).
+
 ## Filtros (`-f`, repetible)
 
 | Sintaxis            | Significado             | Ejemplo               |

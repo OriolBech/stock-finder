@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import sys
+import json as _json
 from enum import Enum
 from typing import Optional
 
@@ -11,19 +11,11 @@ from rich.console import Console
 from rich.table import Table
 
 from . import __version__
-from .api import Filter, ScanResult, ScannerError, TradingViewScanner
-from .fields import (
-    DEFAULT_COLUMNS,
-    FIELDS,
-    MARKETS,
-    resolve_columns,
-    resolve_field,
-    resolve_market,
-)
-from .filters import parse_filters
-from .output import render_analysis, render_table, to_csv, to_json
-from .presets import PRESETS, get_preset
-from .signals import interval_suffix
+from .api import ScannerError
+from .fields import DEFAULT_COLUMNS, FIELDS, MARKETS
+from .output import render_analysis, render_mtf, render_table, to_csv, to_json
+from .presets import PRESETS
+from . import service
 
 app = typer.Typer(
     add_completion=False,
@@ -40,60 +32,13 @@ class Fmt(str, Enum):
     json = "json"
 
 
-def _emit(result: ScanResult, columns: list[str], fmt: Fmt, title: str = "") -> None:
+def _emit_screen(payload: dict, fmt: Fmt, title: str = "") -> None:
     if fmt is Fmt.table:
-        render_table(result, columns, title=title)
+        render_table(payload, title=title)
     elif fmt is Fmt.csv:
-        print(to_csv(result, columns))
+        print(to_csv(payload))
     else:
-        print(to_json(result, columns))
-
-
-def _run_scan(
-    market: str,
-    column_aliases: list[str],
-    filter_exprs: list[str],
-    sort_alias: Optional[str],
-    order: str,
-    limit: int,
-    offset: int,
-    fmt: Fmt,
-    title: str = "",
-    primary_only: bool = True,
-    exclude_otc: bool = True,
-    min_price: Optional[float] = None,
-) -> None:
-    columns = resolve_columns(column_aliases)
-    try:
-        filters = parse_filters(filter_exprs)
-    except ValueError as exc:
-        err.print(f"[red]Error de filtro:[/red] {exc}")
-        raise typer.Exit(2)
-
-    # Filtros de saneo (se añaden a los del usuario/preset).
-    if primary_only:
-        filters.append(Filter(left="is_primary", operation="equal", right=True))
-    if exclude_otc:
-        filters.append(Filter(left="exchange", operation="nequal", right="OTC"))
-    if min_price is not None:
-        filters.append(Filter(left="close", operation="egreater", right=min_price))
-
-    sort_by = resolve_field(sort_alias) if sort_alias else None
-    scanner = TradingViewScanner()
-    try:
-        result = scanner.scan(
-            market=resolve_market(market),
-            columns=columns,
-            filters=filters,
-            sort_by=sort_by,
-            sort_order=order,
-            range_=(offset, offset + limit),
-        )
-    except ScannerError as exc:
-        err.print(f"[red]Error del scanner:[/red] {exc}")
-        raise typer.Exit(1)
-
-    _emit(result, columns, fmt, title=title)
+        print(to_json(payload))
 
 
 @app.command()
@@ -125,10 +70,19 @@ def screen(
 ) -> None:
     """Ejecuta un screen personalizado con filtros arbitrarios."""
     col_aliases = [c.strip() for c in columns.split(",") if c.strip()]
-    _run_scan(
-        market, col_aliases, filter_, sort_by, order, limit, offset, fmt,
-        primary_only=primary_only, exclude_otc=exclude_otc, min_price=min_price,
-    )
+    try:
+        payload = service.run_screen(
+            market=market, filter_exprs=filter_, column_aliases=col_aliases,
+            sort_by=sort_by, order=order, limit=limit, offset=offset,
+            primary_only=primary_only, exclude_otc=exclude_otc, min_price=min_price,
+        )
+    except ValueError as exc:
+        err.print(f"[red]Error de filtro:[/red] {exc}")
+        raise typer.Exit(2)
+    except ScannerError as exc:
+        err.print(f"[red]Error del scanner:[/red] {exc}")
+        raise typer.Exit(1)
+    _emit_screen(payload, fmt)
 
 
 @app.command()
@@ -146,26 +100,17 @@ def preset(
 ) -> None:
     """Ejecuta un screen predefinido."""
     try:
-        p = get_preset(name)
+        payload = service.run_preset(
+            name, market=market, limit=limit, offset=offset,
+            primary_only=primary_only, exclude_otc=exclude_otc, min_price=min_price,
+        )
     except KeyError:
         err.print(f"[red]Preset desconocido:[/red] {name}. Usa 'presets' para ver la lista.")
         raise typer.Exit(2)
-
-    cols = p.columns or DEFAULT_COLUMNS
-    _run_scan(
-        market, cols, p.filters, p.sort_by, p.sort_order, limit, offset, fmt,
-        title=f"{p.name} · {p.description}",
-        primary_only=primary_only, exclude_otc=exclude_otc,
-        min_price=min_price if min_price is not None else p.min_price,
-    )
-
-
-# Campos técnicos que pide 'analyze' (nombres base, sin sufijo de intervalo).
-_RATING_FIELDS = ["Recommend.All", "Recommend.MA", "Recommend.Other"]
-_INDICATOR_FIELDS = [
-    "RSI", "MACD.macd", "MACD.signal", "Stoch.K", "Stoch.D",
-    "CCI20", "ADX", "close", "SMA20", "SMA50", "SMA200", "EMA50", "EMA200",
-]
+    except ScannerError as exc:
+        err.print(f"[red]Error del scanner:[/red] {exc}")
+        raise typer.Exit(1)
+    _emit_screen(payload, fmt, title=f"{payload['preset']} · {payload['description']}")
 
 
 @app.command()
@@ -179,53 +124,15 @@ def analyze(
     fmt: Fmt = typer.Option(Fmt.table, "--format", help="table o json."),
 ) -> None:
     """Análisis técnico de uno o varios valores (rating, medias, osciladores)."""
-    suffix = interval_suffix(interval)
-    base_fields = _RATING_FIELDS + _INDICATOR_FIELDS
-    columns = ["description"] + [f"{f}{suffix}" for f in base_fields]
-
-    scanner = TradingViewScanner()
-    results = []
-    for sym in symbols:
-        name = sym.split(":", 1)[-1].upper()
-        try:
-            res = scanner.scan(
-                market=resolve_market(market),
-                columns=columns,
-                filters=[
-                    Filter(left="name", operation="equal", right=name),
-                    Filter(left="is_primary", operation="equal", right=True),
-                ],
-                range_=(0, 1),
-            )
-        except ScannerError as exc:
-            err.print(f"[red]Error del scanner ({sym}):[/red] {exc}")
-            continue
-        if not res.rows:
-            err.print(f"[yellow]No encontrado:[/yellow] {sym} en mercado '{market}'.")
-            continue
-        row = res.rows[0]
-        # Reindexa los valores quitando el sufijo de intervalo para simplificar.
-        vals = {f: row.values.get(f"{f}{suffix}") for f in base_fields}
-        results.append({
-            "ticker": row.ticker,
-            "symbol": row.symbol,
-            "name": vals_desc(row),
-            "interval": interval,
-            "values": vals,
-        })
-
+    try:
+        results = service.analyze(symbols, market=market, interval=interval)
+    except ScannerError as exc:
+        err.print(f"[red]Error del scanner:[/red] {exc}")
+        raise typer.Exit(1)
     if fmt is Fmt.json:
-        import json
-        print(json.dumps(results, indent=2, ensure_ascii=False))
+        print(_json.dumps(results, indent=2, ensure_ascii=False))
     else:
         render_analysis(results)
-
-
-def vals_desc(row) -> str:
-    return str(row.values.get("description") or row.symbol)
-
-
-_MTF_DEFAULT = ["15m", "1h", "4h", "1D", "1W", "1M"]
 
 
 @app.command()
@@ -233,66 +140,38 @@ def mtf(
     symbol: str = typer.Argument(..., help="Ticker a analizar. Ej: AAPL."),
     market: str = typer.Option("usa", "--market", "-m"),
     intervals: str = typer.Option(
-        ",".join(_MTF_DEFAULT), "--intervals", "-i",
+        "15m,1h,4h,1D,1W,1M", "--intervals", "-i",
         help="Temporalidades separadas por coma.",
     ),
     fmt: Fmt = typer.Option(Fmt.table, "--format"),
 ) -> None:
     """Comparación multi-temporalidad del rating técnico de un valor."""
     tfs = [t.strip() for t in intervals.split(",") if t.strip()]
-    base = ["Recommend.All", "Recommend.MA", "Recommend.Other", "RSI"]
-
-    # Todas las temporalidades en una sola petición (columnas con sufijo por intervalo).
-    columns = ["description"]
-    for tf in tfs:
-        s = interval_suffix(tf)
-        columns += [f"{f}{s}" for f in base]
-
-    name = symbol.split(":", 1)[-1].upper()
-    scanner = TradingViewScanner()
     try:
-        res = scanner.scan(
-            market=resolve_market(market),
-            columns=columns,
-            filters=[
-                Filter(left="name", operation="equal", right=name),
-                Filter(left="is_primary", operation="equal", right=True),
-            ],
-            range_=(0, 1),
-        )
+        payload = service.multi_timeframe(symbol, market=market, intervals=tfs)
     except ScannerError as exc:
         err.print(f"[red]Error del scanner:[/red] {exc}")
         raise typer.Exit(1)
-    if not res.rows:
-        err.print(f"[yellow]No encontrado:[/yellow] {symbol} en mercado '{market}'.")
-        raise typer.Exit(1)
-
-    row = res.rows[0]
-    rows = []
-    for tf in tfs:
-        s = interval_suffix(tf)
-        rows.append({
-            "tf": tf,
-            "all": row.values.get(f"Recommend.All{s}"),
-            "ma": row.values.get(f"Recommend.MA{s}"),
-            "osc": row.values.get(f"Recommend.Other{s}"),
-            "rsi": row.values.get(f"RSI{s}"),
-        })
-
     if fmt is Fmt.json:
-        import json
-        print(json.dumps(
-            {"ticker": row.ticker, "symbol": row.symbol, "name": vals_desc(row), "timeframes": rows},
-            indent=2, ensure_ascii=False,
-        ))
+        print(_json.dumps(payload, indent=2, ensure_ascii=False))
     else:
-        from .output import render_mtf
-        render_mtf(row.symbol, vals_desc(row), row.ticker, rows)
+        render_mtf(payload)
 
 
 @app.command()
-def presets() -> None:
+def presets(
+    fmt: Fmt = typer.Option(Fmt.table, "--format", help="table o json."),
+) -> None:
     """Lista los screens predefinidos."""
+    if fmt is Fmt.json:
+        data = [
+            {"name": p.name, "description": p.description, "filters": p.filters,
+             "columns": p.columns, "sort_by": p.sort_by, "sort_order": p.sort_order,
+             "min_price": p.min_price}
+            for p in PRESETS.values()
+        ]
+        print(_json.dumps(data, indent=2, ensure_ascii=False))
+        return
     table = Table(title="Presets disponibles", header_style="bold cyan")
     table.add_column("nombre", style="bold")
     table.add_column("descripción")
@@ -303,22 +182,35 @@ def presets() -> None:
 
 
 @app.command()
-def fields(search: Optional[str] = typer.Argument(None, help="Filtra por texto.")) -> None:
+def fields(
+    search: Optional[str] = typer.Argument(None, help="Filtra por texto."),
+    fmt: Fmt = typer.Option(Fmt.table, "--format", help="table o json."),
+) -> None:
     """Lista los alias de campos disponibles y su nombre técnico."""
+    items = {
+        a: t for a, t in sorted(FIELDS.items())
+        if not search or search.lower() in a.lower() or search.lower() in t.lower()
+    }
+    if fmt is Fmt.json:
+        print(_json.dumps(items, indent=2, ensure_ascii=False))
+        return
     table = Table(title="Campos", header_style="bold cyan")
     table.add_column("alias", style="bold")
     table.add_column("campo técnico")
-    for alias, tech in sorted(FIELDS.items()):
-        if search and search.lower() not in alias.lower() and search.lower() not in tech.lower():
-            continue
+    for alias, tech in items.items():
         table.add_row(alias, tech)
     console.print(table)
     console.print("[dim]Puedes usar cualquier nombre técnico de TradingView aunque no esté aquí.[/dim]")
 
 
 @app.command()
-def markets() -> None:
+def markets(
+    fmt: Fmt = typer.Option(Fmt.table, "--format", help="table o json."),
+) -> None:
     """Lista los mercados soportados."""
+    if fmt is Fmt.json:
+        print(_json.dumps(MARKETS, indent=2, ensure_ascii=False))
+        return
     table = Table(title="Mercados", header_style="bold cyan")
     table.add_column("alias", style="bold")
     table.add_column("segmento API")

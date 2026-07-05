@@ -10,8 +10,12 @@ dependencies = [
     "rich>=13.7",
 ]
 
+[project.optional-dependencies]
+mcp = ["mcp>=1.2"]
+
 [project.scripts]
 stock-finder = "stock_finder.cli:main"
+stock-finder-mcp = "stock_finder.mcp_server:main"
 
 [build-system]
 requires = ["setuptools>=68"]

@@ -12,7 +12,6 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-from .api import ScanResult
 from .signals import (
     adx_label,
     macd_label,
@@ -62,17 +61,19 @@ def _color_for(col: str, value: Any) -> str | None:
     return None
 
 
-def render_table(result: ScanResult, columns: list[str], title: str = "") -> None:
+def render_table(payload: dict, title: str = "") -> None:
+    columns = payload["columns"]
+    rows = payload["rows"]
     table = Table(title=title or None, header_style="bold cyan", expand=False)
     table.add_column("#", justify="right", style="dim")
     table.add_column("symbol", style="bold")
     for col in columns:
         table.add_column(col, justify="right" if col != "name" else "left")
 
-    for i, row in enumerate(result.rows, 1):
-        cells = [str(i), row.symbol]
+    for i, row in enumerate(rows, 1):
+        cells = [str(i), str(row.get("symbol", ""))]
         for col in columns:
-            val = row.values.get(col)
+            val = row.get(col)
             if col in _RATING_FIELDS:
                 label, color = rating_label(val if isinstance(val, (int, float)) else None)
                 num = f" ({val:+.2f})" if isinstance(val, (int, float)) else ""
@@ -85,7 +86,8 @@ def render_table(result: ScanResult, columns: list[str], title: str = "") -> Non
 
     console.print(table)
     console.print(
-        f"[dim]{len(result.rows)} filas mostradas · {result.total_count} coincidencias totales[/dim]"
+        f"[dim]{len(rows)} filas mostradas · {payload.get('total_count', len(rows))} "
+        f"coincidencias totales[/dim]"
     )
 
 
@@ -96,6 +98,9 @@ def _num(v, fmt="{:.2f}"):
 def render_analysis(results: list[dict]) -> None:
     """Renderiza un panel de análisis técnico por cada símbolo."""
     for r in results:
+        if not r.get("found", True):
+            console.print(f"[yellow]No encontrado:[/yellow] {r.get('symbol')}")
+            continue
         v = r["values"]
         close = v.get("close")
 
@@ -142,10 +147,14 @@ def render_analysis(results: list[dict]) -> None:
         console.print(panel)
 
 
-def render_mtf(symbol: str, name: str, ticker: str, rows: list[dict]) -> None:
+def render_mtf(payload: dict) -> None:
     """Tabla de rating técnico por temporalidad para un mismo valor."""
+    if not payload.get("found", True):
+        console.print(f"[yellow]No encontrado:[/yellow] {payload.get('symbol')}")
+        return
+    rows = payload["timeframes"]
     table = Table(
-        title=f"{symbol} · {name}  [dim]({ticker})[/dim]",
+        title=f"{payload['symbol']} · {payload['name']}  [dim]({payload['ticker']})[/dim]",
         header_style="bold cyan",
     )
     table.add_column("temporalidad", style="bold")
@@ -169,25 +178,18 @@ def render_mtf(symbol: str, name: str, ticker: str, rows: list[dict]) -> None:
     console.print(table)
 
 
-def to_csv(result: ScanResult, columns: list[str]) -> str:
+def to_csv(payload: dict) -> str:
+    columns = payload["columns"]
     buf = io.StringIO()
     writer = csv.writer(buf)
     writer.writerow(["ticker", "exchange", "symbol", *columns])
-    for row in result.rows:
+    for row in payload["rows"]:
         writer.writerow(
-            [row.ticker, row.exchange, row.symbol, *[row.values.get(c) for c in columns]]
+            [row.get("ticker"), row.get("exchange"), row.get("symbol"),
+             *[row.get(c) for c in columns]]
         )
     return buf.getvalue()
 
 
-def to_json(result: ScanResult, columns: list[str]) -> str:
-    out = {
-        "total_count": result.total_count,
-        "count": len(result.rows),
-        "rows": [
-            {"ticker": r.ticker, "exchange": r.exchange, "symbol": r.symbol,
-             **{c: r.values.get(c) for c in columns}}
-            for r in result.rows
-        ],
-    }
-    return json.dumps(out, indent=2, ensure_ascii=False)
+def to_json(payload: dict) -> str:
+    return json.dumps(payload, indent=2, ensure_ascii=False)
